@@ -1,5 +1,6 @@
 import ast
 import random
+import re
 import tkinter as tk
 from tkinter import messagebox
 import numpy as np
@@ -13,12 +14,17 @@ import joblib
 user_balance = 10000  # Initial balance
 selected_bet = None  # Keeps track of the selected bet button
 
-data = pd.read_csv('C:/Users/Admin/Desktop/ML/ML_Project/Get Data/Data/final_data.csv')
+data = pd.read_csv('final_data.csv')
 model = xgb.Booster()
 model.load_model('model.json')
-# Dummy prediction model (replace with your actual model later)
+ppi_data = pd.read_csv('Player_PPI.csv')
+
+
+# Using Model
 def predict_win_probability(stats):
-    stats_list = ast.literal_eval(stats)
+    stats_fixed = re.sub(r'(\b[a-zA-ZÀ-ÿ]+\b)', r"'\1'", stats)
+    stats_list = ast.literal_eval(stats_fixed)
+
     prediction_data = pd.DataFrame(
         [stats_list],
         columns=[
@@ -28,6 +34,17 @@ def predict_win_probability(stats):
             'SCORE_1', 'SCORE_2'
         ]
     )
+    player_rating_map = dict(zip(ppi_data['Player'], ppi_data['PPI']))
+    player_columns = [col for col in prediction_data.columns if 'PLAYER' in col]
+
+    # Replace player names with ratings
+    for col in player_columns:
+        prediction_data[col] = prediction_data[col].map(player_rating_map)
+
+    # Replace player names with ratings
+    for col in player_columns:
+        prediction_data[col] = prediction_data[col].map(player_rating_map)
+
     # Preprocessing
     numerical_cols = [
         'SCOREMARGIN', 'TIME_REMAINING', 'PERIOD', 'PLAYER_1.1', 'PLAYER_1.2',
