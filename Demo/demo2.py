@@ -1,17 +1,56 @@
+import ast
+import random
 import tkinter as tk
 from tkinter import messagebox
 import numpy as np
-
+import pandas as pd
+import sklearn
+import xgboost as xgb
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder
+import joblib
 # Initialize global variables
 user_balance = 10000  # Initial balance
 selected_bet = None  # Keeps track of the selected bet button
 
-
+data = pd.read_csv('C:/Users/Admin/Desktop/ML/ML_Project/Get Data/Data/final_data.csv')
+model = xgb.Booster()
+model.load_model('model.json')
 # Dummy prediction model (replace with your actual model later)
 def predict_win_probability(stats):
-    teamA_prob = np.random.randint(40, 60)  # Example probabilities
-    teamB_prob = 100 - teamA_prob
-    return {"teamA": teamA_prob, "teamB": teamB_prob}
+    stats_list = ast.literal_eval(stats)
+    prediction_data = pd.DataFrame(
+        [stats_list],
+        columns=[
+            'SCOREMARGIN', 'TIME_REMAINING', 'PERIOD', 'TEAM_1', 'TEAM_2',
+            'PLAYER_1.1', 'PLAYER_1.2', 'PLAYER_1.3', 'PLAYER_1.4', 'PLAYER_1.5',
+            'PLAYER_2.1', 'PLAYER_2.2', 'PLAYER_2.3', 'PLAYER_2.4', 'PLAYER_2.5',
+            'SCORE_1', 'SCORE_2'
+        ]
+    )
+    # Preprocessing
+    numerical_cols = [
+        'SCOREMARGIN', 'TIME_REMAINING', 'PERIOD', 'PLAYER_1.1', 'PLAYER_1.2',
+        'PLAYER_1.3', 'PLAYER_1.4', 'PLAYER_1.5', 'PLAYER_2.1', 'PLAYER_2.2',
+        'PLAYER_2.3', 'PLAYER_2.4', 'PLAYER_2.5'  # Numerical feature names
+    ]
+    categorical_cols = ["TEAM_1", "TEAM_2"]
+    # Scale numerical features
+    scaler = joblib.load('scaler.pkl')
+    prediction_data[numerical_cols] = scaler.fit_transform(prediction_data[numerical_cols])
+    # Encode categorical features
+    label_encoders = {}
+    for col in categorical_cols:
+        le = LabelEncoder()
+        prediction_data[col] = le.fit_transform(prediction_data[col])
+        label_encoders[col] = le
+    demo = xgb.DMatrix(prediction_data)
+    pred = model.predict(demo)
+    # pred
+    # prediction_data
+    team_1_prob = pred[0]
+    team_2_prob = 1 - team_1_prob
+    return {"team 1": round(team_1_prob, 2), "team 2": round(team_2_prob, 2)}
 
 
 # Function to handle bet selection
@@ -46,18 +85,25 @@ def place_bet(team_selected):
     probabilities = get_probabilities()
     if probabilities is None:
         return
-
-    win_team = "Team A" if probabilities["teamA"] > probabilities["teamB"] else "Team B"
+    ran = random.uniform(0, 1)
+    max_prob = max(probabilities['team 1'], probabilities['team 2'])
+    win_team = ""
+    if ran < max_prob:
+        if probabilities['team 1'] == max_prob:
+            win_team = "team 1"
+        else:
+            win_team = "team 2"
 
     # Check if the user's bet is correct
     if win_team == team_selected:
-        winnings = bet_amount * 2  # Example: Double the bet amount on win
+        winnings = bet_amount * 0.9/probabilities[win_team]  # Example: Double the bet amount on win
+        winnings = round(winnings, 2)
         user_balance += winnings
         messagebox.showinfo("Result", f"Congrats! {team_selected} won! You earned ${winnings}.")
     else:
         user_balance -= bet_amount
         messagebox.showinfo("Result", f"Sorry, {team_selected} lost. You lost ${bet_amount}.")
-
+    user_balance = round(user_balance, 2)
     # Update UI elements
     balance_label.config(text=f"Balance: ${user_balance}")
 
@@ -72,7 +118,7 @@ def get_probabilities():
     # Get prediction probabilities
     probabilities = predict_win_probability(stats)
     result_label.config(
-        text=f"Win Probabilities - Team A: {probabilities['teamA']}%, Team B: {probabilities['teamB']}%"
+        text=f"Win Probabilities - Team 1: {round(probabilities['team 1']*100, 2)}%, Team 2: {round(probabilities['team 2']*100, 2)}%"
     )
     return probabilities
 
@@ -129,10 +175,10 @@ tk.Label(root, text="Choose a team to bet on:").pack(pady=10)
 team_frame = tk.Frame(root)
 team_frame.pack()
 
-tk.Button(team_frame, text="Bet on Team A", command=lambda: place_bet("Team A")).pack(
+tk.Button(team_frame, text="Bet on team 1", command=lambda: place_bet("team 1")).pack(
     side=tk.LEFT, padx=20
 )
-tk.Button(team_frame, text="Bet on Team B", command=lambda: place_bet("Team B")).pack(
+tk.Button(team_frame, text="Bet on team 2", command=lambda: place_bet("team 2")).pack(
     side=tk.LEFT, padx=20
 )
 
