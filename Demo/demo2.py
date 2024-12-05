@@ -22,7 +22,7 @@ ppi_data = pd.read_csv('Player_PPI.csv')
 
 # Using Model
 def predict_win_probability(stats):
-    stats_fixed = re.sub(r'(\b[a-zA-ZÀ-ÿ]+\b)', r"'\1'", stats)
+    stats_fixed = re.sub(r'(\b[a-zA-ZÀ-ÿ\s-]+\b)', r"'\1'", stats)
     stats_list = ast.literal_eval(stats_fixed)
 
     prediction_data = pd.DataFrame(
